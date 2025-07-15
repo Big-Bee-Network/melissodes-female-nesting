@@ -1,0 +1,43 @@
+---
+title: "Plotting_merged_data_sets"
+author: "Liliana_Lay"
+date: "2025-07-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Code to graph a scatter plot where temperature in fahrenheit represents the x axis and the y axis represents the number of bees exiting a nest at that temperature.
+
+#Read in the merged data set
+bee_data_with_temp <- read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data_with_temp.csv")
+
+library(ggplot2)
+library(dplyr)
+
+# Filter NAs from Temperature F column in bee_plot_data
+bee_plot_data <- bee_data_with_temp %>%
+  filter(!is.na(`Temperature F`))
+
+# Add row number within each temperature group to stack points
+bee_plot_data <- bee_plot_data %>%
+  group_by(`Temperature F`) %>%
+  mutate(y_stack = row_number()) %>%
+  ungroup()
+
+# Plot
+ggplot(bee_plot_data, aes(x = `Temperature F`, y = y_stack)) +
+  geom_point(size = 2, color = "hotpink") +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 10)) +
+  labs(
+    title = "Bee Observations by Temperature (Stacked)",
+    x = "Temperature (°F)",
+    y = "Number of Bees Observed exiting"
+  ) +
+  theme_minimal()
+
+```
+
