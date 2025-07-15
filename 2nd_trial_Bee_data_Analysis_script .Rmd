@@ -43,7 +43,8 @@ temp_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - 
 
 ```{r}
 #Dr. Seltmanns Github cleaning code that works to reformat the time data so R reads it as time on the 12 hour clock and figure out the duration in minutes the bees spend in the nests.
-
+####################################
+#bee data filtering and reformatting
 # Parse Date column using lubridate::mdy()
 bee_data <- bee_data %>%
   mutate(Date = mdy(Date))
@@ -97,6 +98,7 @@ bee_data %>%
 
 
 ```{r}
+####################################
 # Code to reformat time data on temp_data based on Dr. Seltmanns code 
 
 # Parse Date column using lubridate::mdy()
@@ -107,6 +109,7 @@ temp_data <- temp_data %>%
 temp_data %>% select(Date) %>% distinct()
 
 # Define a helper function to add AM/PM
+# Move into cleaning script
 fix_ampm <- function(time_str) {
   time_str <- str_trim(time_str)
   if (is.na(time_str) || time_str == "") return(NA_character_)
@@ -121,6 +124,7 @@ fix_ampm <- function(time_str) {
   }
 }
 
+#more into cleaning script
 # Apply it to the time column
 temp_data <- temp_data %>%
   mutate(
