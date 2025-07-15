@@ -1,0 +1,339 @@
+---
+title: "Bee_data_analysis_tests"
+author: "Liliana_Lay"
+date: "2025-07-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+#Reading in the downloaded CSV file of the R Bee data from the google spread sheet.
+library(tidyverse)
+ LGN_Bee_Data <- read_csv("Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R Bee data.csv", skip = 1, col_names = c("Date", "Bee_color", "Nest_Number", "Time_Entered", "Time_Exited"))
+```
+
+```{r}
+#All the code from this point forward is Dr. Seltmanns Code and notes from the GitHub Repository, The data cleaning section specifically
+
+#Parse Date column using lubricate: :mdy()
+LGN_Bee_Data <- LGN_Bee_Data %>% mutate(Date = mdy(Date))
+
+#View Result
+LGN_Bee_Data %>% select(Date) %>% distinct()
+```
+
+```{r}
+#Define a helper function to add AM/PM
+fix_ampm <- function(time_str) {
+  time_str <- str_trim(time_str)
+  if (is.na(time_str) || time_str == "") return(NA_character_)
+  
+  hour_val <- suppressWarnings(as.numeric(str_extract(time_str, "^[0-9]{1,2}")))
+  if (is.na(hour_val)) return(NA_character_)
+  
+  if (hour_val >= 8 & hour_val <= 11) {
+    return(paste0(time_str, " AM"))
+  } else {
+    return(paste0(time_str, " PM"))
+  }
+}
+
+#Apply to both time columns
+LGN_Bee_Data <- LGN_Bee_Data %>% mutate(
+  Time_Entered_fixed = sapply(Time_Entered, fix_ampm),
+    Time_Exited_fixed  = sapply(Time_Exited, fix_ampm)
+)
+
+#View result
+LGN_Bee_Data %>% select(Date, Bee_color, Nest_Number, Time_Entered_fixed, Time_Exited_fixed)
+
+```
+
+```{r}
+#Remove rows with NA and create dt for those without NA (will want to return them for determining how many nests a female enters)
+
+LGN_Bee_Data <- LGN_Bee_Data %>% 
+  filter(!is.na(Time_Entered_fixed) & !is.na(Time_Exited_fixed)) %>%
+  mutate(
+    Time_Entered_dt = parse_date_time(paste(Date, Time_Entered_fixed), orders = "ymd HM p"),
+    Time_Exited_dt  = parse_date_time(paste(Date, Time_Exited_fixed), orders = "ymd HM p")
+  )
+
+LGN_Bee_Data <- LGN_Bee_Data %>% 
+  mutate(
+    Duration_minutes = as.numeric(difftime(Time_Exited_dt, Time_Entered_dt, units = "mins"))
+  )
+
+#View Result
+LGN_Bee_Data %>% 
+  select(Date, Time_Entered_fixed, Time_Entered_dt, Time_Exited_fixed, Time_Exited_dt, Duration_minutes)
+```
+
+```{r}
+#This is Dr. Seltmenns code from the "analysis" section of the Github repository
+
+#Number of females per nest
+bee_counts <- LGN_Bee_Data %>% 
+  filter(!is.na(Bee_color) & !is.na(Nest_Number)) %>%
+  group_by(Nest_Number) %>%
+  summarise(
+    num_females = n_distinct(Bee_color),
+    .groups = "drop"
+  )
+
+#View the Result
+bee_counts
+
+```
+
+```{r}
+#Number of nest recorded that had more than one female enter
+total_nests <- nrow(bee_counts)
+nests_with_multiple_females <- bee_counts %>%
+  filter(num_females > 1) %>%
+  nrow()
+
+cat("Nests with >1 female:", nests_with_multiple_females, "out of", total_nests, "total nests\n")
+```
+
+```{r}
+#From this line forward will be me tinkering with the cleaned data to create a few visualizations
+
+#This variable describes the total time that was spent in each nest be every bee, grouped by nest number.
+
+nest_summary <- LGN_Bee_Data %>% 
+  group_by(Nest_Number) %>% 
+  summarise(Total_Time_Minutes = sum(Duration_minutes, na.rm = TRUE))
+
+
+```
+
+```{r}
+#converting the date to year-month-day in Envmtl_data
+Envmtl_data <- Envmtl_data %>% mutate(Date = mdy(Date))
+
+#View Result
+Envmtl_data %>% select(Date) %>% distinct()
+```
+
+```{r}
+#Creating new column in Envmtl_data with combined date and time
+
+fix_ampm <- function(time_str) {
+  time_str <- str_trim(time_str)
+  if (is.na(time_str) || time_str == "") return(NA_character_)
+  
+  hour_val <- suppressWarnings(as.numeric(str_extract(time_str, "^[0-9]{1,2}")))
+  if (is.na(hour_val)) return(NA_character_)
+  
+  if (hour_val >= 8 & hour_val <= 11) {
+    return(paste0(time_str, " AM"))
+  } else {
+    return(paste0(time_str, " PM"))
+  }
+}
+
+
+Envmtl_data <- Envmtl_data %>% mutate(
+  Time_fixed = sapply(Time, fix_ampm)
+)
+
+
+Envmtl_data <- Envmtl_data %>%
+  mutate(
+    Time_fixed = sapply(Time, fix_ampm),
+    combined_string = paste(Date, Time_fixed),
+    Date_time = parse_date_time(combined_string, orders = "ymd HM p")
+  )
+
+Envmtl_data <- Envmtl_data %>%
+  rename(Date_time = combined_string)
+
+
+```
+
+
+```{r}
+#7-8-25
+# Test to try and combine data sets based on matching dates, that way only observations that are made within the times recorded every 10 minutes for temperature remain.
+
+colnames(Envmtl_data)
+install.packages("fuzzyjoin")
+install.packages("dplyr")
+library(dplyr)
+library(fuzzyjoin)
+
+library(dplyr)
+library(fuzzyjoin)
+
+# Ensure both are in POSIXct format
+LGN_Bee_Data <- LGN_Bee_Data %>%
+  mutate(Time_Entered_dt = as.POSIXct(Time_Entered_dt))
+
+Envmtl_data <- Envmtl_data %>%
+  mutate(Date_time = as.POSIXct(Date_time))
+
+# Perform the fuzzy join and find the closest matching timestamp
+joined_data <- fuzzy_left_join(
+  LGN_Bee_Data,
+  Envmtl_data,
+  by = c("Time_Entered_dt" = "Date_time"),
+  match_fun = list(`>=`)
+) %>%
+  filter(!is.na(Date_time)) %>%
+  mutate(
+    time_diff = abs(difftime(Time_Entered_dt, Date_time, units = "mins"))
+  ) %>%
+  group_by(Time_Entered_dt) %>%
+  slice_min(order_by = time_diff, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(Time_Entered_dt, Time_Exited_dt, Nest_Number, Date_time, Temperature = `Temperature ˚F`, Duration_minutes)
+
+```
+
+```{r}
+#Second test to try and combine data Environmental Data and Bee Data by dates that match
+
+#Trying to attach an exact temperature at the moment a bee enters using a time based fuzzy join so the combined data set preserves all the LGN_Bee_data entrees sans the N/A's and gives a temperature closest to each bees entry time.
+
+thrd_envmtl_data <- read.csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R environmental Data.csv")
+
+#1st step join Environmental data by date
+
+library(dplyr)
+library(fuzzyjoin)
+library(lubridate)
+
+# Add date-only columns
+LGN_Bee_Data <- LGN_Bee_Data %>%
+  mutate(Date_only = as_date(Time_Entered_dt))
+
+thrd_envmtl_data <- thrd_envmtl_data %>%
+  mutate(Date_only = as_date(Date_time))
+
+# Filter environmental data to only dates where bees were observed
+Envmtl_filtered <- thrd_envmtl_data %>%
+  filter(Date_only %in% unique(LGN_Bee_Data$Date_only))
+
+# Step 1: Prepare bee data with datetime and unique row ID
+LGN_Bee_Data <- LGN_Bee_Data %>%
+  mutate(
+    Bee_ID_Row = row_number(),  # unique ID for each bee observation
+    Date_only = as_date(Time_Entered_dt),
+    Bee_datetime = as.POSIXct(Time_Entered_dt)
+  )
+
+# Step 2: Prepare environmental data with datetime
+thrd_envmtl_data <- thrd_envmtl_data %>%
+  mutate(
+    Date_only = as_date(Date_time),
+    Env_datetime = as.POSIXct(Date_time)
+  )
+
+# Step 3: Filter environmental data to matching dates
+Envmtl_filtered <- thrd_envmtl_data %>%
+  filter(Date_only %in% unique(LGN_Bee_Data$Date_only))
+
+# Step 4: Fuzzy left join by datetime within ±10 minutes
+Bee_env_all_matches <- fuzzy_left_join(
+  LGN_Bee_Data,
+  Envmtl_filtered,
+  by = c("Bee_datetime" = "Env_datetime"),
+  match_fun = list(function(x, y) abs(difftime(x, y, units = "mins")) <= 1000)
+)
+
+# Step 5: Keep closest environmental match per bee (or NA if none found)
+Bee_with_Env <- Bee_env_all_matches %>%
+  mutate(time_diff = abs(difftime(Bee_datetime, Env_datetime, units = "secs"))) %>%
+  group_by(Bee_ID_Row) %>%
+  slice_min(order_by = time_diff, with_ties = FALSE) %>%
+  ungroup()
+
+
+#7-9-25 Code is super messy and temperatures are scrambled to try and match temperature times to bee entry times workshop tomorrow.
+
+
+```
+
+```{r}
+#7-8-25
+#Creating a new environmental data set to "start fresh" and change the times to military time so R recognizes the values in that column as a number 
+new_envmtl_data <- read.csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R environmental Data.csv")
+
+library(lubridate)
+library(stringr)
+
+#Creates helper function to add AM/PM 
+fix_ampm <- function(time_str) {
+  time_str <- str_trim(time_str)
+  if (is.na(time_str) || time_str == "") return(NA_character_)
+  
+  hour_val <- suppressWarnings(as.numeric(str_extract(time_str, "^[0-9]{1,2}")))
+  if (is.na(hour_val)) return(NA_character_)
+  
+  if (hour_val >= 8 & hour_val <= 11) {
+    return(paste0(time_str, " AM"))
+  } else {
+    return(paste0(time_str, " PM"))
+  }
+}
+
+#Creates new column with AM/PM times (time_12hr)
+new_envmtl_data <- new_envmtl_data %>% mutate(
+  time_12hr = sapply(Time, fix_ampm)) 
+
+#Creates new column with 24hr time based on time_12hr
+new_envmtl_data <- new_envmtl_data %>% 
+  mutate(time_24hr = format(parse_date_time(time_12hr, orders = "I:M p"), "%H:%M"))
+
+```
+
+```{r}
+#Creating scatter plot graphs of Time vs Temperature Data for each day
+library(tidyverse)
+library(ggplot2)
+ggplot(new_envmtl_data, mapping = aes(x = time_24hr, y = Temperature..F, color = Date)) + 
+  geom_point(size = 2) + 
+  facet_wrap(~Date)
+
+```
+
+
+
+
+
+```{r}
+#changing time_fixed from (character) to (time)
+Envmtl_data$new_time <- as.factor(Envmtl_data$Time_fixed)
+#Plotting time vs temperature from environmental data
+library(ggplot2)
+ggplot(Envmtl_data, mapping = aes(x = Time_fixed, y = `Temperature ˚F`,color = Date)) + 
+   geom_point(size=2) +
+  facet_wrap(~Date)
+ggplot(Envmtl_data, mapping = aes(x = Date_time, y = `Temperature ˚F`,color = Date)) + 
+   geom_point(size=2) 
+```
+
