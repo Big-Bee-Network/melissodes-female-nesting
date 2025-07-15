@@ -73,7 +73,7 @@ bee_data <- bee_data %>%
     Time_Entered_fixed = sapply(Time_Entered, fix_ampm),
     Time_Exited_fixed  = sapply(Time_Exited, fix_ampm)
   )
-
+##
 # View result
 bee_data %>% select(Date, Bee_color, Nest_Number, Time_Entered_fixed, Time_Exited_fixed)
 
