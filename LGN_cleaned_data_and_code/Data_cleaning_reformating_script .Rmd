@@ -5,32 +5,9 @@ date: "2025-07-14"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
 
 ```{r}
+
 #Reading in both data sets from google sheets
 library(tidyverse)
 bee_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R Bee data.csv", skip = 1, 
@@ -42,6 +19,7 @@ temp_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - 
 
 
 ```{r}
+
 #Dr. Seltmanns Github cleaning code that works to reformat the time data so R reads it as time on the 12 hour clock and figure out the duration in minutes the bees spend in the nests.
 ####################################
 #bee data filtering and reformatting
@@ -149,23 +127,18 @@ temp_data %>%
   select(Date, Time_fixed, Time_fixed_dt) %>%
   head(10)
 
-
-
 ```
 
 
 ```{r}
+
 # save new cleaned data sets
 write_csv(bee_data, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data.csv")
 
 write_csv(temp_data, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/temp_data.csv")
 
-
-
 ```
 
 
-```{r}
 
-```
 

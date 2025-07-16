@@ -1,0 +1,69 @@
+---
+title: "Bee_ground_temp_joining_data"
+author: "Liliana_Lay"
+date: "2025-07-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Code to to join data sets based on a time in temp_data that most closely matches a time_exited time in bee_data
+
+library(tidyverse)
+library(fuzzyjoin)
+
+#read in data
+read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data.csv")
+read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/temp_data.csv") 
+
+
+# 1. Parse datetime and add row ID
+bee_data_cleaned <- bee_data %>%
+  mutate(
+    Time_Exited_dt = ymd_hms(Time_Exited_dt, tz = "UTC"),
+    Date = as_date(Time_Exited_dt),
+    .rowid = row_number()
+  )
+
+temp_data_cleaned <- temp_data %>%
+  mutate(
+    Time_fixed_dt = ymd_hms(Time_fixed_dt, tz = "UTC"),
+    Date = as_date(Time_fixed_dt)
+  )
+
+# 2. Fuzzy join on Date and Time within 30 minutes
+joined <- difference_left_join(
+  bee_data_cleaned, temp_data_cleaned,
+  by = c("Date" = "Date", "Time_Exited_dt" = "Time_fixed_dt"),
+  max_dist = as.difftime(6, units = "mins"),
+  distance_col = "time_diff"
+)
+
+# 3. Keep closest match per bee row
+closest_matches <- joined %>%
+  group_by(.rowid) %>%
+  slice_min(order_by = abs(time_diff), n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+# 4. Define bee_data columns
+bee_cols <- names(bee_data)
+
+# 5. Select only bee_data columns plus temperature
+bee_data_with_temp <- closest_matches %>%
+  select(
+    any_of(bee_cols),
+    `Temperature F`
+  )
+
+```
+
+```{r}
+#Saving the dataset
+
+write_csv(bee_data_with_temp, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data_with_temp.csv")
+
+```
+
