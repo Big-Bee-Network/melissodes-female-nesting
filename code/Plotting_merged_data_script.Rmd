@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #Code to graph a scatter plot where temperature in fahrenheit represents the x axis and the y axis represents the number of bees exiting a nest at that temperature.
 
 #Read in the merged data set
-bee_data_with_temp <- read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data_with_temp.csv")
+bee_data_with_temp <- read_csv("~/Documents/melissodes-female-nesting/data/bee_data_with_temp.csv")
 
 library(ggplot2)
 library(dplyr)

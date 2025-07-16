@@ -16,8 +16,8 @@ library(tidyverse)
 library(fuzzyjoin)
 
 #read in data
-read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data.csv")
-read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/temp_data.csv") 
+read_csv("~/Documents/melissodes-female-nesting/data/bee_data.csv")
+read_csv("~/Documents/melissodes-female-nesting/data/temp_data.csv") 
 
 
 # 1. Parse datetime and add row ID
@@ -63,7 +63,7 @@ bee_data_with_temp <- closest_matches %>%
 ```{r}
 #Saving the dataset
 
-write_csv(bee_data_with_temp, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data_with_temp.csv")
+write_csv(bee_data_with_temp, "~/Documents/melissodes-female-nesting/data/bee_data_with_temp.csv")
 
 ```
 

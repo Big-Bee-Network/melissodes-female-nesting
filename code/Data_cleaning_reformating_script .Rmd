@@ -8,7 +8,7 @@ output: html_document
 
 ```{r}
 
-#Reading in both data sets from google sheets
+#Reading in both data sets from google sheets x
 library(tidyverse)
 bee_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R Bee data.csv", skip = 1, 
                      col_names = c("Date", "Bee_color", "Nest_Number", "Time_Entered", "Time_Exited"))
@@ -133,9 +133,9 @@ temp_data %>%
 ```{r}
 
 # save new cleaned data sets
-write_csv(bee_data, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data.csv")
+write_csv(bee_data, "~/Documents/melissodes-female-nesting/data/bee_data.csv")
 
-write_csv(temp_data, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/temp_data.csv")
+write_csv(temp_data, "~/Documents/melissodes-female-nesting/data/temp_data.csv")
 
 ```
 
