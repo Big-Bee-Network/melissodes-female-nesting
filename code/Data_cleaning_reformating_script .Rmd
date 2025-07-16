@@ -1,0 +1,144 @@
+---
+title: "LGN_data_cleaning_"
+author: "Liliana_Lay"
+date: "2025-07-14"
+output: html_document
+---
+
+
+```{r}
+
+#Reading in both data sets from google sheets
+library(tidyverse)
+bee_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R Bee data.csv", skip = 1, 
+                     col_names = c("Date", "Bee_color", "Nest_Number", "Time_Entered", "Time_Exited"))
+
+temp_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R environmental Data.csv", skip = 1, col_names = c("Date", "Time", "Temperature F") )
+
+```
+
+
+```{r}
+
+#Dr. Seltmanns Github cleaning code that works to reformat the time data so R reads it as time on the 12 hour clock and figure out the duration in minutes the bees spend in the nests.
+####################################
+#bee data filtering and reformatting
+
+#Change date from M/DY/YR to YR-M-DY
+# Parse Date column using lubridate::mdy()
+bee_data <- bee_data %>%
+  mutate(Date = mdy(Date))
+
+# View result
+bee_data %>% select(Date) %>% distinct()
+
+# Define a helper function to add AM/PM to time columns (creates new columns)
+fix_ampm <- function(time_str) {
+  time_str <- str_trim(time_str)
+  if (is.na(time_str) || time_str == "") return(NA_character_)
+  
+  hour_val <- suppressWarnings(as.numeric(str_extract(time_str, "^[0-9]{1,2}")))
+  if (is.na(hour_val)) return(NA_character_)
+  
+  if (hour_val >= 8 & hour_val <= 11) {
+    return(paste0(time_str, " AM"))
+  } else {
+    return(paste0(time_str, " PM"))
+  }
+}
+
+
+# Apply it to both time columns
+bee_data <- bee_data %>%
+  mutate(
+    Time_Entered_fixed = sapply(Time_Entered, fix_ampm),
+    Time_Exited_fixed  = sapply(Time_Exited, fix_ampm)
+  )
+
+# View result
+bee_data %>% select(Date, Bee_color, Nest_Number, Time_Entered_fixed, Time_Exited_fixed)
+
+
+#remove rows with NA and create dt for those witohout NA (will want to return them for determining how many nests a female enteres)
+bee_data <- bee_data %>%
+  filter(!is.na(Time_Entered_fixed) & !is.na(Time_Exited_fixed)) %>%
+  mutate(
+    Time_Entered_dt = parse_date_time(paste(Date, Time_Entered_fixed), orders = "ymd HM p"),
+    Time_Exited_dt  = parse_date_time(paste(Date, Time_Exited_fixed), orders = "ymd HM p")
+  )
+
+#adds duration in minutes each bee stays in nest
+bee_data <- bee_data %>%
+  mutate(
+    Duration_minutes = as.numeric(difftime(Time_Exited_dt, Time_Entered_dt, units = "mins"))
+  )
+
+# View result
+bee_data %>%
+  select(Date, Time_Entered_fixed, Time_Entered_dt, Time_Exited_fixed, Time_Exited_dt, Duration_minutes)
+
+```
+
+
+```{r}
+####################################
+# Code to reformat time column in temp_data based on Dr. Seltmanns code 
+
+#Change date from M/DY/YR to YR-M-DY
+# Parse Date column using lubridate::mdy()
+temp_data <- temp_data %>%
+  mutate(Date = mdy(Date))
+
+# View result
+temp_data %>% select(Date) %>% distinct()
+
+# Define a helper function to add AM/PM to time column (creates new column)
+fix_ampm <- function(time_str) {
+  time_str <- str_trim(time_str)
+  if (is.na(time_str) || time_str == "") return(NA_character_)
+  
+  hour_val <- suppressWarnings(as.numeric(str_extract(time_str, "^[0-9]{1,2}")))
+  if (is.na(hour_val)) return(NA_character_)
+  
+  if (hour_val >= 8 & hour_val <= 11) {
+    return(paste0(time_str, " AM"))
+  } else {
+    return(paste0(time_str, " PM"))
+  }
+}
+
+
+# Apply it to the time column
+temp_data <- temp_data %>%
+  mutate(
+    Time_fixed = map_chr(Time, fix_ampm))
+
+#view result 
+temp_data %>% select(Date, Time, `Temperature F`, Time_fixed)
+
+
+#add date_time column to temperature data
+temp_data <- temp_data %>%
+  mutate(
+    Time_fixed_dt = parse_date_time(paste(Date, Time_fixed), orders = "ymd HMS p"))
+
+#view result
+temp_data %>%
+  select(Date, Time_fixed, Time_fixed_dt) %>%
+  head(10)
+
+```
+
+
+```{r}
+
+# save new cleaned data sets
+write_csv(bee_data, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data.csv")
+
+write_csv(temp_data, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/temp_data.csv")
+
+```
+
+
+
+
