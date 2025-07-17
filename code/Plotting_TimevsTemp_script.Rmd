@@ -1,0 +1,167 @@
+---
+title: "Plotting_ground_temperature_over_time"
+author: "Liliana_Lay"
+date: "2025-07-17"
+output: html_document
+---
+
+```{r}
+
+#code to create a TimevsTemperature plot for each day representing a different color
+
+read_csv("~/Documents/melissodes-female-nesting/data/temp_data.csv")
+
+
+library(tidyverse)
+
+
+# 3. Plot using only time-of-day on x-axis
+ggplot(temp_data_filtered, aes(x = time_of_day, y = ground_temperature_F, color = as.factor(Date))) +
+  geom_smooth(se = FALSE, method = "loess", span = 0.4) +
+  scale_x_datetime(
+    date_breaks = "30 min",
+    date_labels = "%H:%M",
+    limits = c(
+      as.POSIXct("08:00:00", format = "%H:%M:%S", tz = "UTC"),
+      as.POSIXct("15:00:00", format = "%H:%M:%S", tz = "UTC")
+    )
+  ) +
+  scale_y_continuous(
+    breaks = seq(
+      floor(min(temp_data_filtered$ground_temperature_F, na.rm = TRUE)),
+      ceiling(max(temp_data_filtered$ground_temperature_F, na.rm = TRUE)),
+      by = 2
+    )
+  ) + 
+  labs(x = "Time of Day", y = "Temperature F", color = "Date") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+
+
+
+
+```
+
+```{r}
+#Code to overlay bee exits on top of changing temperature trendlines
+
+library(tidyverse)
+
+#Preparing bee data times
+bee_data_with_temp_filtered <- bee_data_with_temp %>%
+  filter(!is.na(ground_temperature_F)) %>%
+  mutate(
+    time_of_day = as.POSIXct(format(Time_Exited_dt, "%H:%M:%S"), format = "%H:%M:%S", tz = "UTC"),
+    Date = as.Date(Time_Exited_dt)
+  ) %>%
+  filter(hour(time_of_day) >= 8 & hour(time_of_day) <= 16)
+
+
+#plotting
+ggplot(temp_data_filtered, aes(x = time_of_day, y = ground_temperature_F, color = as.factor(Date))) +
+  geom_smooth(se = FALSE, method = "loess", span = 0.4) +
+  geom_point(
+    data = bee_data_with_temp_filtered,
+    aes(x = time_of_day, y = ground_temperature_F, color = as.factor(Date)),
+    size = 1, shape = 21, fill = "white"
+  ) +
+  scale_x_datetime(
+    date_breaks = "30 min",
+    date_labels = "%H:%M",
+    limits = c(
+      as.POSIXct("08:00:00", format = "%H:%M:%S", tz = "UTC"),
+      as.POSIXct("16:00:00", format = "%H:%M:%S", tz = "UTC")
+    )
+  ) +
+  scale_y_continuous(
+    breaks = seq(
+      floor(min(temp_data_filtered$ground_temperature_F, na.rm = TRUE)),
+      ceiling(max(temp_data_filtered$ground_temperature_F, na.rm = TRUE)),
+      by = 2
+    )
+  ) +
+  labs(x = "Time of Day", y = "Temperature (°F)", color = "Date") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+```
+
+```{r}
+
+#this code does the same thing, plotting bee exits over the temperature trendlines but interpolates the temperatures associated with the bee exits instead of using fuzzyjoin, by interpolatinf the temperature at the exact beeexit time from the full temperature data which has times that are more regular and linear than the non linear bee data. 
+
+#The bee exit temperature is calculated based on where it would fall on the trendline, instead of finding a nearest temperature that might slightly miss.
+
+#prepare temp time data
+temp_data_prepped <- temp_data %>%
+  mutate(
+    datetime = ymd_hms(paste(Date, Time_fixed)),
+    time_of_day = as.POSIXct(format(datetime, "%H:%M:%S"), format = "%H:%M:%S", tz = "UTC")
+  ) %>%
+  filter(hour(time_of_day) >= 8 & hour(time_of_day) <= 16)
+
+#Interpolate temperature for bee exits
+bee_data_interp <- bee_data_with_temp %>%
+  mutate(
+    Date = as.Date(Time_Exited_dt),
+    time_of_day = as.POSIXct(format(Time_Exited_dt, "%H:%M:%S"), format = "%H:%M:%S", tz = "UTC")
+  ) %>%
+  filter(hour(time_of_day) >= 8 & hour(time_of_day) <= 16) %>%
+  group_by(Date) %>%
+  mutate(
+    interpolated_temp = map2_dbl(
+      time_of_day, Date,
+      ~ {
+        temp_day <- temp_data_prepped %>% filter(Date == .y)
+        if (nrow(temp_day) >= 2) {
+          approx(
+            x = as.numeric(temp_day$time_of_day),
+            y = temp_day$ground_temperature_F,
+            xout = as.numeric(.x)
+          )$y
+        } else {
+          NA_real_
+        }
+      }
+    )
+  ) %>%
+  ungroup() %>%
+  filter(!is.na(interpolated_temp))
+
+#Plot smoothed trendlines + bee exit points
+ggplot(temp_data_prepped, aes(x = time_of_day, y = ground_temperature_F, color = as.factor(Date))) +
+  geom_smooth(se = FALSE, method = "loess", span = 0.4) +
+  geom_point(
+    data = bee_data_interp,
+    aes(x = time_of_day, y = interpolated_temp, color = as.factor(Date)),
+    size = 1, shape = 21, fill = "white"
+  ) +
+  scale_x_datetime(
+    date_breaks = "30 min",
+    date_labels = "%H:%M",
+    limits = c(
+      as.POSIXct("08:00:00", format = "%H:%M:%S", tz = "UTC"),
+      as.POSIXct("15:00:00", format = "%H:%M:%S", tz = "UTC")
+    )
+  ) +
+  scale_y_continuous(
+    breaks = seq(
+      floor(min(temp_data_prepped$ground_temperature_F, na.rm = TRUE)),
+      ceiling(max(temp_data_prepped$ground_temperature_F, na.rm = TRUE)),
+      by = 2
+    )
+  ) +
+  labs(x = "Time of Day", y = "Temperature (°F)", color = "Date") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
