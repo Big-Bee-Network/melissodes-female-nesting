@@ -13,7 +13,7 @@ library(tidyverse)
 bee_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R Bee data.csv", skip = 1, 
                      col_names = c("Date", "Bee_color", "Nest_Number", "Time_Entered", "Time_Exited"))
 
-temp_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R environmental Data.csv", skip = 1, col_names = c("Date", "Time", "Temperature F") )
+temp_data <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - R environmental Data.csv", skip = 1, col_names = c("Date", "Time", "ground_temperature_F") )
 
 ```
 
@@ -114,7 +114,7 @@ temp_data <- temp_data %>%
     Time_fixed = map_chr(Time, fix_ampm))
 
 #view result 
-temp_data %>% select(Date, Time, `Temperature F`, Time_fixed)
+temp_data %>% select(Date, Time, ground_temperature_F, Time_fixed)
 
 
 #add date_time column to temperature data

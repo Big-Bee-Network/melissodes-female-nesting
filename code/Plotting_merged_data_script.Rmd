@@ -20,21 +20,21 @@ library(dplyr)
 
 # Filter NAs from Temperature F column in bee_plot_data
 bee_plot_data <- bee_data_with_temp %>%
-  filter(!is.na(`Temperature F`))
+  filter(!is.na(`ground_temperature_F`))
 
 # Add row number within each temperature group to stack points
 bee_plot_data <- bee_plot_data %>%
-  group_by(`Temperature F`) %>%
+  group_by(`ground_temperature_F`) %>%
   mutate(y_stack = row_number()) %>%
   ungroup()
 
 # Plot
-ggplot(bee_plot_data, aes(x = `Temperature F`, y = y_stack)) +
+ggplot(bee_plot_data, aes(x = `ground_temperature_F`, y = y_stack)) +
   geom_point(size = 2, color = "hotpink") +
   scale_x_continuous(breaks = scales::pretty_breaks(n = 10)) +
   labs(
     title = "Bee Observations by Temperature (Stacked)",
-    x = "Temperature (°F)",
+    x = "Ground Temperature (°F)",
     y = "Number of Bees Observed exiting"
   ) +
   theme_minimal()

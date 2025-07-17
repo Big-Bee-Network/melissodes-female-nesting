@@ -16,12 +16,11 @@ library(tidyverse)
 library(fuzzyjoin)
 
 #read in data
-read_csv("~/Documents/melissodes-female-nesting/data/bee_data.csv")
-read_csv("~/Documents/melissodes-female-nesting/data/temp_data.csv") 
+read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data.csv")
+read_csv("~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/temp_data.csv") 
 
 
-
-# 1. Parse datetime and add row ID to bee_data
+# 1. Parse datetime and add row ID
 bee_data_cleaned <- bee_data %>%
   mutate(
     Time_Exited_dt = ymd_hms(Time_Exited_dt, tz = "UTC"),
@@ -29,37 +28,34 @@ bee_data_cleaned <- bee_data %>%
     .rowid = row_number()
   )
 
-# 2. Parse datetime and rename date in temp_data to avoid conflict
 temp_data_cleaned <- temp_data %>%
   mutate(
     Time_fixed_dt = ymd_hms(Time_fixed_dt, tz = "UTC"),
-    Date_temp = as_date(Time_fixed_dt)
-  ) %>%
-  select(-Date)  # Remove the original Date column from temp_data_cleaned
+    Date = as_date(Time_fixed_dt)
+  )
 
-
-# 3. Fuzzy join on Date (bee) = Date_temp (temp) and Time_Exited_dt ≈ Time_fixed_dt (within 6 mins)
+# 2. Fuzzy join on Date and Time within 30 minutes
 joined <- difference_left_join(
   bee_data_cleaned, temp_data_cleaned,
-  by = c("Date" = "Date_temp", "Time_Exited_dt" = "Time_fixed_dt"),
+  by = c("Date" = "Date", "Time_Exited_dt" = "Time_fixed_dt"),
   max_dist = as.difftime(6, units = "mins"),
   distance_col = "time_diff"
 )
 
-# 4. Keep closest match per bee row
+# 3. Keep closest match per bee row
 closest_matches <- joined %>%
   group_by(.rowid) %>%
   slice_min(order_by = abs(time_diff), n = 1, with_ties = FALSE) %>%
   ungroup()
 
-# 5. Define bee_data columns
+# 4. Define bee_data columns
 bee_cols <- names(bee_data)
 
-# 6. Select bee_data columns plus temperature from temp_data
+# 5. Select only bee_data columns plus temperature
 bee_data_with_temp <- closest_matches %>%
   select(
     any_of(bee_cols),
-    ground_temperature_F  # or adjust to match actual column name
+    `Temperature F`
   )
 
 ```
@@ -67,7 +63,7 @@ bee_data_with_temp <- closest_matches %>%
 ```{r}
 #Saving the dataset
 
-write_csv(bee_data_with_temp, "~/Documents/melissodes-female-nesting/data/bee_data_with_temp.csv")
+write_csv(bee_data_with_temp, "~/Documents/melissodes-female-nesting/LGN_cleaned_data_and_code/bee_data_with_temp.csv")
 
 ```
 
