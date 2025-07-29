@@ -52,7 +52,7 @@ ggplot(temp_data_filtered, aes(x = time_of_day, y = ground_temperature_F, color 
 library(tidyverse)
 
 #Preparing bee data times
-bee_data_with_temp_filtered <- bee_data_with_temp %>%
+bee_data_with_temp_filtered <- bee_data_with_ground_temp %>%
   filter(!is.na(ground_temperature_F)) %>%
   mutate(
     time_of_day = as.POSIXct(format(Time_Exited_dt, "%H:%M:%S"), format = "%H:%M:%S", tz = "UTC"),
@@ -108,7 +108,7 @@ temp_data_prepped <- temp_data %>%
   filter(hour(time_of_day) >= 8 & hour(time_of_day) <= 16)
 
 #Interpolate temperature for bee exits
-bee_data_interp <- bee_data_with_temp %>%
+bee_data_interp <- bee_data_with_ground_temp %>%
   mutate(
     Date = as.Date(Time_Exited_dt),
     time_of_day = as.POSIXct(format(Time_Exited_dt, "%H:%M:%S"), format = "%H:%M:%S", tz = "UTC")

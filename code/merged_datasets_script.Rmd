@@ -56,7 +56,7 @@ closest_matches <- joined %>%
 bee_cols <- names(bee_data)
 
 # 6. Select bee_data columns plus temperature from temp_data
-bee_data_with_temp <- closest_matches %>%
+bee_data_with_ground_temp <- closest_matches %>%
   select(
     any_of(bee_cols),
     ground_temperature_F  # or adjust to match actual column name
@@ -67,7 +67,7 @@ bee_data_with_temp <- closest_matches %>%
 ```{r}
 #Saving the dataset
 
-write_csv(bee_data_with_temp, "~/Documents/melissodes-female-nesting/data/bee_data_with_temp.csv")
+write_csv(bee_data_with_ground_temp, "~/Documents/melissodes-female-nesting/data/bee_data_with_ground_temp.csv")
 
 ```
 
