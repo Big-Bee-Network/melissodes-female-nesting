@@ -1,0 +1,63 @@
+---
+title: "BD_GTD_NWSD_merged"
+author: "Liliana_Lay"
+date: "2025-07-29"
+output: html_document
+---
+
+```{r}
+
+#read in data set intended to merge
+read_csv("~/Documents/melissodes-female-nesting/data/new_wsd.csv")
+
+read_csv("~/Documents/melissodes-female-nesting/data/bee_exit_ground_temp_final.csv")
+
+```
+
+```{r}
+#code to merge data sets: bee_exit_ground_temp_final and new_wsd 
+
+new_wsd <- new_wsd %>% 
+  rename(ws_datetime = valid)
+
+library(fuzzyjoin)
+library(lubridate)
+
+# Ensure datetimes are parsed properly
+bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>%
+  mutate(bee_exit_datetime = ymd_hms(bee_exit_datetime))
+
+new_wsd <- new_wsd %>%
+  mutate(ws_datetime = ymd_hms(ws_datetime))
+
+# Fuzzy join: match within a wide enough window (40 minutes)
+bee_ws_gt_data <- fuzzy_left_join(
+  bee_exit_ground_temp_final,
+  new_wsd,
+  by = c("bee_exit_datetime" = "ws_datetime"),
+  match_fun = list(function(x, y) abs(as.numeric(difftime(x, y, units = "secs"))) <= 2400)
+)
+
+# Keep only the closest match per bee exit
+joined_bee_ws_gt_data <- bee_ws_gt_data %>%
+  mutate(time_diff_secs = abs(as.numeric(difftime(bee_exit_datetime, ws_datetime, units = "secs")))) %>%
+  group_by(bee_exit_datetime) %>%
+  slice_min(time_diff_secs, with_ties = FALSE) %>%
+  ungroup()
+
+#add time difference in seconds between bee exit_exit_datetimes and ws_datetimes
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(ws_time_diff_secs = abs(as.numeric(difftime(bee_exit_datetime, ws_datetime, units = "secs"))))
+
+max(joined_bee_ws_gt_data$ws_time_diff_secs)
+
+```
+
+```{r}
+#Saved merged data set includes: bee exit time, ground temp, and additional weather station data
+
+write_csv(joined_bee_ws_gt_data, "~/Documents/melissodes-female-nesting/data/joined_bee_ws_gt_data.csv")
+
+
+```
+

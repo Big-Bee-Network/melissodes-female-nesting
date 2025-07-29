@@ -1,0 +1,174 @@
+---
+title: "Weather_station_data"
+author: "Liliana_Lay"
+date: "2025-07-29"
+output: html_document
+---
+
+
+```{r}
+#The ultimate purpose of this script is to prepare the weather station data to merge with the bee and ground temperature data.
+#The majority of the code was to re-clean the bee data and include data for the bee exit times that may have been lost in the first round of cleaning in "bee_data", then to merge this data with the ground temperature data that I recorded based on the closest time stamp matches. 
+```
+
+```{r}
+#load in new weather station data set
+weather_station_data <- read.table("~/Documents/melissodes-female-nesting/data/weather-station.txt", sep = ",", header = TRUE)
+```
+
+```{r}
+#create new data sets with only selected columns for weather station data
+library(dbplyr)
+
+#weather station data with select columns
+new_wsd <- weather_station_data %>% 
+  select(station, valid, tmpf, relh, skyc1)
+#selected columns for station, datetime, ambient temperature ˚F, humidity %, and cloud cover status.
+
+
+#select only essential columns from temp_data for merging withweather station data
+ground_temp_data <- temp_data %>% 
+  select(Time_fixed_dt, ground_temperature_F)
+
+#format checks
+class(ground_temp_data$Time_fixed_dt)
+str(ground_temp_data$Time_fixed_dt)
+head(ground_temp_data$Time_fixed_dt)
+
+class(new_wsd$valid)
+str(new_wsd$valid)
+
+#converting date/time format in new_wsd from weather station data to match to the date/time format used in ground_temp_data
+library(lubridate)
+
+new_wsd$valid <- ymd_hm(new_wsd$valid)
+
+#format checks
+str(new_wsd$valid)
+head(new_wsd$valid)
+
+```
+
+```{r}
+#reading in a new bee data set that will be cleaned and used to combine with the ground temperature data set and the weather station data set. I readded the bee data because the dataset I was working with got rid of all the NA values in the bee enter and exit columns when I want to keep all bee exits recorded even if the time they entered was "NA" because all be exits are bee emergences and I'm using that metric to measure bee activity. 
+
+#read in new bee data, nwsd stands for "new_weather_station_data"
+library(readr)
+bee_data_for_nwsd <- read_csv("~/Downloads/6-18-25 Lagoon Ground Nesters Data Sheet 3 - bee_data_for_wsd (1).csv")
+
+#format checking
+class(bee_data_for_nwsd$Date)
+class(bee_data_for_nwsd$`Time Exited`)
+
+#data cleaning
+#convert date column to year-month-day format in bee_data_for_nwsd
+library(lubridate)
+
+bee_data_for_nwsd$Date <- mdy(bee_data_for_nwsd$Date)
+
+
+#assign time stamp values in time entered and exited columns either AM/PM 
+library(dplyr)
+library(stringr)
+
+bee_data_for_nwsd <- bee_data_for_nwsd %>%
+  mutate(
+    time_en_with_ampm = case_when(
+      as.numeric(str_extract(`Time Entered`, "^[0-9]+")) %in% 6:11 ~ paste0(`Time Entered`, " AM"),
+      as.numeric(str_extract(`Time Entered`, "^[0-9]+")) == 12 |
+        as.numeric(str_extract(`Time Entered`, "^[0-9]+")) %in% 1:7 ~ paste0(`Time Entered`, " PM"),
+      TRUE ~ NA_character_
+    ),
+    time_ex_with_ampm = case_when(
+      as.numeric(str_extract(`Time Exited`, "^[0-9]+")) %in% 6:11 ~ paste0(`Time Exited`, " AM"),
+      as.numeric(str_extract(`Time Exited`, "^[0-9]+")) == 12 |
+        as.numeric(str_extract(`Time Exited`, "^[0-9]+")) %in% 1:7 ~ paste0(`Time Exited`, " PM"),
+      TRUE ~ NA_character_
+    )
+  )
+
+#remove intermediate columns
+bee_data_for_nwsd <- bee_data_for_nwsd %>% 
+  select(-hour_entered, -hour_exited)
+
+bee_data_for_nwsd <- bee_data_for_nwsd %>% 
+  select(-time_en_fixed,-time_ex_fixed,-time_entered_with_ampm)
+
+#create date_time column for bee exits
+library(lubridate)
+
+bee_data_for_nwsd <- bee_data_for_nwsd %>%
+  # Step 1: Filter out rows with NA in bee exit times
+  filter(!is.na(time_ex_with_ampm)) %>%
+  
+  # Step 2 & 3: Parse datetime and format to 24-hour time
+  mutate(
+    exit_datetime = parse_date_time(paste(Date, time_ex_with_ampm), orders = "ymd HMp"),
+    time_ex_24hr = format(exit_datetime, "%H:%M:%S")
+  ) 
+
+
+```
+
+```{r}
+#code to merge exit_datetime column from bee_data_for_nwsd and ground_temp_data, assigns a temperature to closest matching time stamps from exit_datetime within 21 minutes. The minutes were chosen to give a temperature value to each bee exit. 
+
+library(fuzzyjoin)
+
+
+# First, make sure both datasets have a Date column extracted
+bee_data_for_nwsd <- bee_data_for_nwsd %>%
+  mutate(date_only = as_date(exit_datetime))
+
+ground_temp_data <- ground_temp_data %>%
+  mutate(date_only = as_date(Time_fixed_dt))
+
+# Now perform the fuzzy join with both date and time restrictions
+bee_exit_ground_temp_joined <- fuzzy_left_join(
+  bee_data_for_nwsd,
+  ground_temp_data,
+  by = c(
+    "date_only" = "date_only",                       # must match exactly by date
+    "exit_datetime" = "Time_fixed_dt"                  # fuzzy match by time
+  ),
+  match_fun = list(`==`,                             # exact date match
+                   function(x, y) abs(as.numeric(difftime(x, y, units = "secs"))) <= 1260)  # within 21 minutes
+)
+
+bee_exit_ground_temp_final <- bee_exit_ground_temp_joined %>%
+  mutate(time_diff_secs = abs(as.numeric(difftime(exit_datetime, Time_fixed_dt, units = "secs")))) %>%
+  group_by(exit_datetime) %>%
+  slice_min(time_diff_secs, with_ties = FALSE) %>%
+  ungroup()
+
+#keep only necessary columns and name final cleaned and merged data set between bee exit times and temperature matches.
+bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>% 
+  select(-time_en_with_ampm,-time_ex_with_ampm, -time_ex_24hr, -date_only.x, -date_only.y)
+
+bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>% 
+  rename(datetime_ground_temp = Time_fixed_dt)
+
+bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>% 
+  rename(bee_exit_datetime = exit_datetime)
+
+```
+
+
+```{r}
+#save new datasets
+
+#cleaned weather station data
+write_csv(new_wsd, "~/Documents/melissodes-female-nesting/data/new_wsd.csv")
+
+#cleaned temp_data, which is really the ground temperature data
+write_csv(ground_temp_data, "~/Documents/melissodes-female-nesting/data/ground_temp_data.csv")
+
+write_csv(bee_data_for_nwsd, "~/Documents/melissodes-female-nesting/data/bee_data_for_nwsd.csv")
+
+#use this data sets information to merge with weather station data
+write_csv(bee_exit_ground_temp_final, "~/Documents/melissodes-female-nesting/data/bee_exit_ground_temp_final")
+
+```
+
+
+
