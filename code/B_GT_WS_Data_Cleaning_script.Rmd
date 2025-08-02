@@ -135,11 +135,6 @@ bee_exit_ground_temp_joined <- fuzzy_left_join(
                    function(x, y) abs(as.numeric(difftime(x, y, units = "secs"))) <= 1260)  # within 21 minutes
 )
 
-bee_exit_ground_temp_final <- bee_exit_ground_temp_joined %>%
-  mutate(time_diff_secs = abs(as.numeric(difftime(exit_datetime, Time_fixed_dt, units = "secs")))) %>%
-  group_by(exit_datetime) %>%
-  slice_min(time_diff_secs, with_ties = FALSE) %>%
-  ungroup()
 
 #keep only necessary columns and name final cleaned and merged data set between bee exit times and temperature matches.
 bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>% 
@@ -150,6 +145,13 @@ bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>%
 
 bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>% 
   rename(bee_exit_datetime = exit_datetime)
+
+bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>%
+  mutate(gt_time_diff_secs = abs(as.numeric(difftime(bee_exit_datetime, datetime_ground_temp, units = "secs")))) 
+
+bee_exit_ground_temp_final <- bee_exit_ground_temp_final %>%
+  mutate(gt_time_diff_mins = abs(as.numeric(difftime(bee_exit_datetime, datetime_ground_temp, units = "mins")))) 
+
 
 ```
 
@@ -166,7 +168,7 @@ write_csv(ground_temp_data, "~/Documents/melissodes-female-nesting/data/ground_t
 write_csv(bee_data_for_nwsd, "~/Documents/melissodes-female-nesting/data/bee_data_for_nwsd.csv")
 
 #use this data sets information to merge with weather station data
-write_csv(bee_exit_ground_temp_final, "~/Documents/melissodes-female-nesting/data/bee_exit_ground_temp_final")
+write_csv(bee_exit_ground_temp_final, "~/Documents/melissodes-female-nesting/data/bee_exit_ground_temp_final.csv")
 
 ```
 

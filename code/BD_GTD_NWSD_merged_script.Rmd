@@ -45,12 +45,26 @@ joined_bee_ws_gt_data <- bee_ws_gt_data %>%
   slice_min(time_diff_secs, with_ties = FALSE) %>%
   ungroup()
 
-#add time difference in seconds between bee exit_exit_datetimes and ws_datetimes
+#add time difference in minutes between bee exit_exit_datetimes and ws_datetimes
+
 joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
-  mutate(ws_time_diff_secs = abs(as.numeric(difftime(bee_exit_datetime, ws_datetime, units = "secs"))))
+  mutate(ws_time_diff_mins = abs(as.numeric(difftime( ws_datetime, bee_exit_datetime, units = "mins"))))
+
+#add time difference in minutes between bee exit_exit_datetimes and ground temp datetimes
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(gt_time_diff_mins = abs(as.numeric(difftime( datetime_ground_temp, bee_exit_datetime, units = "mins"))))
+
+
+#random editing and checking code
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>% 
+  rename(ws_time_diff_mins = ws_time_diff_secs)
 
 max(joined_bee_ws_gt_data$ws_time_diff_secs)
 
+str(joined_bee_ws_gt_data$bee_exit_datetime)
+str(joined_bee_ws_gt_data$ws_datetime)
+
+max(bee_data$Nest_Number)
 ```
 
 ```{r}
