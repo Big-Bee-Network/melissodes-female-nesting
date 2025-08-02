@@ -1,0 +1,148 @@
+---
+title: "Joined_bee_ws_gt_analysis"
+author: "Liliana_Lay"
+date: "2025-08-01"
+output: html_document
+---
+
+```{r}
+#attempt at running a step-wise regression on fully merged data
+#This code follow methods provided in this paper:
+#CORBET, S.A., FUSSELL, M., AKE, R., FRASER, A., GUNSON, C., SAVAGE, A. and SMITH, K. (1993), Temperature and the pollinating activity of social bees. Ecological Entomology, 18: 17-30. https://doi.org/10.1111/j.1365-2311.1993.tb01075.
+
+library(dplyr)
+library(lubridate)
+library(MASS)
+
+# Prepare data
+bee_model_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime) + minute(bee_exit_datetime)/60,
+    skyc1 = as.factor(skyc1)
+  ) %>%
+  filter(!is.na(tmpf), !is.na(ground_temperature_F), !is.na(relh), !is.na(skyc1))
+
+bee_model_data$skyc1 <- relevel(bee_model_data$skyc1, ref = "CLR")
+
+# Full model
+full_model <- lm(exit_hour ~ ground_temperature_F + tmpf + relh + skyc1, data = bee_model_data)
+
+# Stepwise selection
+step_model <- step(full_model, direction = "both")
+
+# View model
+summary(step_model)
+
+levels(bee_model_data$skyc1)
+
+```
+
+```{r}
+#code to re-run step-wise regression analysis with time as a factor
+#using smoothing methods/moving window average
+
+library(dplyr)
+library(zoo)
+library(lubridate)
+
+# Define a mode function for categorical rolling window
+get_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+joined_bee_ws_gt_data_analysis <- joined_bee_ws_gt_data %>%
+  arrange(datetime_ground_temp) %>%
+  mutate(
+    # Smoothed numeric variables using rolling average (width=3, centered)
+    ground_temp_rollavg = rollapply(ground_temperature_F, width = 3, FUN = mean, align = "center", fill = NA),
+    tmpf_rollavg = rollapply(tmpf, width = 3, FUN = mean, align = "center", fill = NA),
+    relh_rollavg = rollapply(relh, width = 3, FUN = mean, align = "center", fill = NA),
+    
+    # Smoothed cloud cover: rolling mode (width=3, centered)
+    skyc1_rollavg = rollapply(skyc1, width = 3, FUN = get_mode, align = "center", fill = NA),
+    
+    # Convert smoothed cloud cover to factor with reference "CLR"
+    skyc1_rollavg = factor(skyc1_rollavg),
+    skyc1_rollavg = relevel(skyc1_rollavg, ref = "CLR"),
+    
+    # Calculate decimal exit time
+    decimal_exit_time = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60,
+    
+    # Circular time variables for circadian effect
+    time_rad = (decimal_exit_time / 24) * 2 * pi,
+    sin_time = sin(time_rad),
+    cos_time = cos(time_rad),
+    
+    # Time difference between bee exit and ground temp measurement
+    time_diff_ground = abs(difftime(bee_exit_datetime, datetime_ground_temp, units = "mins"))
+  ) %>%
+  filter(
+    # Keep only rows where bee exit time and temp are closely matched (within 15 minutes)
+    time_diff_ground <= 15,
+    !is.na(ground_temp_rollavg),
+    !is.na(tmpf_rollavg),
+    !is.na(relh_rollavg),
+    !is.na(skyc1_rollavg)
+  )
+
+# Fit the model with smoothed variables and circular time terms
+model_all_vars_smoothed <- lm(
+  decimal_exit_time ~ sin_time + cos_time + ground_temp_rollavg + tmpf_rollavg + relh_rollavg + skyc1_rollavg,
+  data = joined_bee_ws_gt_data_analysis
+)
+
+summary(model_all_vars_smoothed)
+
+```
+
+
+```{r}
+#graph to plot time vs. emergence and show cloud cover
+
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Make sure bee_exit_datetime is in POSIXct format
+# And skyc1 is a factor (optional, but good for controlling color order)
+emergence_plot <- joined_bee_ws_gt_data %>%
+  mutate(
+    time_of_day = format(bee_exit_datetime, format = "%H:%M:%S"),
+    time_of_day = as.POSIXct(time_of_day, format = "%H:%M:%S"),
+    skyc1 = factor(skyc1, levels = c("CLR", "FEW", "SCT", "BKN", "OVC"))
+  )
+
+# Create plot
+ggplot(emergence_plot, aes(x = time_of_day, y = 1, color = skyc1)) +
+  geom_point(position = position_jitter(height = 0.1), size = 2, alpha = 0.7) +
+  scale_x_datetime(
+    name = "Time of Day",
+    breaks = seq(from = as.POSIXct("07:00:00", format = "%H:%M:%S"),
+                 to = as.POSIXct("17:00:00", format = "%H:%M:%S"),
+                 by = "30 mins"),
+    date_labels = "%H:%M"
+  ) +
+  scale_y_continuous(NULL, breaks = NULL) +  # Hide Y axis
+  scale_color_manual(
+    values = c("CLR" = "#FDB813", "FEW" = "#A8DADC", "SCT" = "#457B9D", 
+               "BKN" = "#1D3557", "OVC" = "#6C757D")
+  ) +
+  labs(
+    title = "Individual Bee Emergence Times by Cloud Cover",
+    color = "Cloud Cover"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+weather_station_data[356:379, ]
+```
+```{r}
+new_wsd[356:379, ]
+```
+```{r}
+joined_bee_ws_gt_data[84:119, ]
+```
+
