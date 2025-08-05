@@ -38,6 +38,116 @@ levels(bee_model_data$skyc1)
 ```
 
 ```{r}
+#This code will try and plot some visualizations based on what model predicted above
+
+#This code will show the average predicted time by cloud cover category: "how does cloudiness shift the average emergence time?"
+
+library(ggplot2)
+
+# Create new data frame for prediction
+pred_data <- bee_model_data %>%
+  group_by(skyc1) %>%
+  summarise(across(c(ground_temperature_F, tmpf, relh), mean)) %>%
+  mutate(predicted_exit = predict(step_model, newdata = .))
+
+# Plot
+ggplot(pred_data, aes(x = skyc1, y = predicted_exit)) +
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "Predicted Bee Exit Time by Cloud Cover",
+    x = "Cloud Cover (skyc1)",
+    y = "Predicted Exit Hour"
+  ) +
+  theme_minimal()
+
+
+
+#lines of predicted exit time vs. ground temperature, split across cloud categories.
+
+library(ggplot2)
+library(dplyr)
+
+# Create a sequence of ground temperatures
+temp_seq <- seq(
+  from = min(bee_model_data$ground_temperature_F, na.rm = TRUE),
+  to   = max(bee_model_data$ground_temperature_F, na.rm = TRUE),
+  length.out = 100
+)
+
+# Create prediction grid with mean values for other predictors
+predict_grid <- expand.grid(
+  ground_temperature_F = temp_seq,
+  tmpf  = mean(bee_model_data$tmpf, na.rm = TRUE),
+  relh  = mean(bee_model_data$relh, na.rm = TRUE),
+  skyc1 = levels(bee_model_data$skyc1)
+)
+
+# Predict exit time
+predict_grid$predicted_exit <- predict(step_model, newdata = predict_grid)
+
+# Plot
+ggplot(predict_grid, aes(x = ground_temperature_F, y = predicted_exit)) +
+  geom_line() +
+  facet_wrap(~ skyc1) +
+  labs(
+    title = "Effect of Temperature on Predicted Bee Exit Time",
+    x = "Ground Temperature (°F)",
+    y = "Predicted Exit Hour"
+  ) +
+  theme_minimal()
+
+
+
+
+```
+```{r}
+#graph to plot time vs bee exits for the multiple days
+
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+# Step 1: Prepare hourly bee exit counts
+bee_hourly <- joined_bee_ws_gt_data %>%
+  mutate(
+    date = as.Date(bee_exit_datetime),
+    hour = hour(bee_exit_datetime) + minute(bee_exit_datetime)/60  # decimal time
+  ) %>%
+  group_by(date, hour = floor(hour)) %>%
+  summarise(n_exits = n(), .groups = "drop")
+
+# Step 2: Plot with LOESS smoothing
+ggplot(bee_hourly, aes(x = hour, y = n_exits, group = date, color = as.factor(date))) +
+  geom_smooth(se = FALSE, method = "loess", span = 0.6, linewidth = 1.2) +
+  scale_x_continuous(
+    name = "Time of Day (Hour)",
+    breaks = seq(8, 17, by = 1),  # Ticks from 6 AM to 6 PM
+    limits = c(8, 17)
+  ) +
+  scale_y_continuous(name = "Number of Bee Exits (per Hour)") +
+  labs(
+    title = "Smoothed Bee Exit Activity by Time of Day",
+    color = "Date"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12)
+  )
+
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
 #code to re-run step-wise regression analysis with time as a factor
 #using smoothing methods/moving window average
 
@@ -96,6 +206,69 @@ summary(model_all_vars_smoothed)
 
 ```
 
+```{r}
+#re-run multiple step linear regression with raw un-smoothed data
+
+library(dplyr)
+library(lubridate)
+
+# Prepare the dataset without smoothing
+joined_bee_ws_gt_data_analysis_raw <- joined_bee_ws_gt_data %>%
+  mutate(
+    # Convert cloud cover to factor with reference level "CLR"
+    skyc1_factor = factor(skyc1),
+    skyc1_factor = relevel(skyc1_factor, ref = "CLR"),
+    
+    # Decimal exit time
+    decimal_exit_time = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60,
+    
+    # Circular time variables
+    time_rad = (decimal_exit_time / 24) * 2 * pi,
+    sin_time = sin(time_rad),
+    cos_time = cos(time_rad)
+    )
+
+# Fit the model with raw variables
+model_all_vars_raw <- lm(
+  decimal_exit_time ~ sin_time + cos_time + ground_temperature_F + tmpf + relh + skyc1_factor,
+  data = joined_bee_ws_gt_data_analysis_raw
+)
+
+# View summary
+summary(model_all_vars_raw)
+
+
+
+#re-run step-wise regression with time as a variable and time as a predictor variable
+
+# Extract decimal time of day
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    decimal_exit_time = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60,
+    time_radians = 2 * pi * decimal_exit_time / 24,
+    sin_time = sin(time_radians),
+    cos_time = cos(time_radians),
+    skyc1_factor = as.factor(skyc1),
+    skyc1_factor = relevel(skyc1_factor, ref = "CLR") 
+  )
+
+# Prepare the full model
+full_model <- lm(decimal_exit_time ~ sin_time + cos_time + ground_temperature_F + tmpf + relh + skyc1_factor,
+                 data = joined_bee_ws_gt_data)
+
+# Run stepwise regression using AIC
+stepwise_model <- stepAIC(full_model, direction = "both", trace = FALSE)
+
+# Summarize the final model
+summary(stepwise_model)
+
+
+
+```
+
+
+
+
 
 ```{r}
 #graph to plot time vs. emergence and show cloud cover
@@ -137,12 +310,299 @@ ggplot(emergence_plot, aes(x = time_of_day, y = 1, color = skyc1)) +
 
 ```
 ```{r}
-weather_station_data[356:379, ]
+#R-script to make three models to see whether time or climate factors better predicts bee-activity.
+
+
+# Load libraries
+library(dplyr)
+library(lubridate)
+library(MASS)
+install.packages("car")
+library(car)
+install.packages("relaimpo")
+library(relaimpo)
+install.packages("lme4")
+library(lme4)
+
+# Prepare the data
+bee_model_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    Date = as.Date(bee_exit_datetime),
+    exit_hour = hour(bee_exit_datetime) + minute(bee_exit_datetime)/60,
+    time_radians = 2 * pi * exit_hour / 24,
+    sin_time = sin(time_radians),
+    cos_time = cos(time_radians),
+    skyc1 = as.factor(skyc1)
+  ) %>%
+  filter(!is.na(exit_hour), !is.na(tmpf), !is.na(ground_temperature_F), !is.na(relh), !is.na(skyc1))
+
+bee_model_data$skyc1 <- relevel(bee_model_data$skyc1, ref = "CLR")
+
+# Model 1: Climate-only (no time)
+climate_model <- lm(exit_hour ~ ground_temperature_F + tmpf + relh + skyc1, data = bee_model_data)
+
+# Model 2: Time + Climate (regular linear model)
+time_climate_model <- lm(exit_hour ~ sin_time + cos_time + ground_temperature_F + tmpf + relh + skyc1, 
+                         data = bee_model_data)
+
+# Model 3: Time + Climate + Random Intercept for Day
+time_climate_mixed <- lmer(exit_hour ~ sin_time + cos_time + ground_temperature_F + tmpf + relh + skyc1 + 
+                           (1 | Date), data = bee_model_data, REML = FALSE)
+
+# --- Model Comparisons ---
+# AIC values
+cat("AIC values:\n")
+AIC(climate_model, time_climate_model, time_climate_mixed)
+
+# ANOVA between climate-only and time+climate
+cat("\nANOVA: Does time add explanatory power?\n")
+anova(climate_model, time_climate_model)
+
+# Variance Partitioning (only works on lm objects)
+cat("\nRelative Importance of Predictors (LM only):\n")
+calc.relimp(time_climate_model, type = "lmg")
+
+# Summary of Mixed Model
+cat("\nSummary of Mixed Model:\n")
+summary(time_climate_mixed)
+
+
+
 ```
 ```{r}
-new_wsd[356:379, ]
+#visualizing which models best predicts bee exit time:
+
+library(ggplot2)
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Ensure predictions exist
+bee_model_data <- bee_model_data %>%
+  mutate(
+    pred_climate = predict(climate_model),
+    pred_time_climate = predict(time_climate_model),
+    pred_mixed = predict(time_climate_mixed)
+  )
+
+# Create a new tibble for plotting (to avoid issues from masking)
+plot_data <- bee_model_data %>%
+  dplyr::select(exit_hour, pred_climate, pred_time_climate, pred_mixed) %>%
+  tidyr::pivot_longer(
+    cols = starts_with("pred_"),
+    names_to = "model",
+    values_to = "predicted_exit"
+  ) %>%
+  dplyr::mutate(model = dplyr::recode(model,
+    "pred_climate" = "Climate Only (LM)",
+    "pred_time_climate" = "Time + Climate (LM)",
+    "pred_mixed" = "Time + Climate + Day (Mixed)"
+  ))
+
+# Plot
+ggplot(plot_data, aes(x = exit_hour, y = predicted_exit, color = model)) +
+  geom_point(alpha = 0.4, size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
+  facet_wrap(~model) +
+  labs(
+    title = "Observed vs. Predicted Bee Exit Hour",
+    x = "Observed Exit Hour",
+    y = "Predicted Exit Hour",
+    color = "Model"
+  ) +
+  theme_minimal()
+
+```
+
+
+```{r}
+#further analysis of plots and code to explore whether circadian rhythm interacts with sky conditions: does cloud cover shift or flatten rhythm?
+
+# Update the mixed-effects model to include interaction
+interaction_model <- lmer(
+  exit_hour ~ sin_time * skyc1 + cos_time + ground_temperature_F + tmpf + relh + (1 | Date),
+  data = bee_model_data,
+  REML = FALSE
+)
+
+summary(interaction_model)
+
+
+#lets plot this interaction:
+library(ggplot2)
+library(dplyr)
+
+# 1. Create a sequence of exit hours (7 AM to 5 PM in 0.1 hour steps)
+hour_seq <- seq(7, 17, length.out = 100)
+
+# 2. Create new data frame with sin/cos transformations and repeated skyc1 levels
+new_data <- expand.grid(
+  exit_hour = hour_seq,
+  skyc1 = levels(bee_model_data$skyc1)
+) %>%
+  mutate(
+    time_radians = 2 * pi * exit_hour / 24,
+    sin_time = sin(time_radians),
+    cos_time = cos(time_radians),
+    ground_temperature_F = mean(bee_model_data$ground_temperature_F, na.rm = TRUE),
+    tmpf = mean(bee_model_data$tmpf, na.rm = TRUE),
+    relh = mean(bee_model_data$relh, na.rm = TRUE)
+  )
+
+# 3. Predict using the interaction model
+new_data$predicted_exit <- predict(interaction_model, newdata = new_data, re.form = NA)
+
+new_data <- new_data %>%
+  mutate(deviation = predicted_exit - exit_hour)
+
+ggplot(new_data, aes(x = exit_hour, y = deviation, color = skyc1)) +
+  geom_line(linewidth = 1.0) +
+  labs(
+    title = "Effect of Sky Condition on Timing of Bee Emergence",
+    x = "Time of Day (Hour)",
+    y = "Deviation from Baseline Exit Hour",
+    color = "Sky Condition"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
+  theme_minimal()
+
+
 ```
 ```{r}
-joined_bee_ws_gt_data[84:119, ]
+
+#okay back to the drawing board: this code will attempt to put each bee exit in 15 minute time blocks to further categorize them and count how many bees exited in each block to add to analysis. This will answer: "when do bees tend to emerge and what conditions correlate with higher emergence counts" 
+
+library(dplyr)
+library(lubridate)
+
+# Add a 15-minute time block column to each bee
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    time_block = floor_date(bee_exit_datetime, unit = "15 minutes")
+  )
+
+# Count how many bees exited in each 15-min block across the dataset
+bee_block_counts <- joined_bee_ws_gt_data %>%
+  count(time_block, name = "n_exited")
+
+# Join the count back into the original data frame
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  left_join(bee_block_counts, by = "time_block")
+
+#calculating sin/cos time to convert time into points on a circle to deal with issues related to the cyclical nature of time
+
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    decimal_hour = hour(time_block) + minute(time_block) / 60,
+    radians = 2 * pi * decimal_hour / 24,
+    sin_time = sin(radians),
+    cos_time = cos(radians)
+  )
+
+
+
+lm(decimal_hour ~ tmpf + relh + ground_temperature_F + sin_time + cos_time, data = joined_bee_ws_gt_data)
+
+
+
+```
+
+```{r}
+#More data cleaning to make bee exits a binomial value
+install.packages("FNN")       # For fast nearest-neighbor joins
+install.packages("lubridate")
+
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(FNN)
+
+# Step 1: Round bee exit to time blocks
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    date = as_date(bee_exit_datetime),
+    time_block = floor_date(bee_exit_datetime, unit = "15 minutes"),
+    bee_exited = 1
+  )
+
+# Make sure datetime columns are properly formatted
+joined_bee_ws_gt_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    bee_exit_datetime = as.POSIXct(bee_exit_datetime, tz = "UTC"),  # or your actual TZ
+    date = as_date(bee_exit_datetime)
+  )
+
+# When generating time blocks, explicitly specify the time zone too
+all_time_blocks <- joined_bee_ws_gt_data %>%
+  distinct(date) %>%
+  rowwise() %>%
+  mutate(time_seq = list(seq.POSIXt(
+    from = as.POSIXct(paste(date, "07:00:00"), tz = "UTC"),
+    to   = as.POSIXct(paste(date, "17:00:00"), tz = "UTC"),
+    by   = "15 min"
+  ))) %>%
+  unnest(time_seq) %>%
+  rename(time_block = time_seq)
+
+
+
+# Step 2: Build full sequence of 15-min blocks (from 07:00 to 17:00)
+all_time_blocks <- joined_bee_ws_gt_data %>%
+  distinct(date) %>%
+  rowwise() %>%
+  mutate(time_seq = list(seq.POSIXt(
+    from = as.POSIXct(paste(date, "07:00:00")),
+    to   = as.POSIXct(paste(date, "17:00:00")),
+    by   = "15 min"
+  ))) %>%
+  unnest(time_seq) %>%
+  rename(time_block = time_seq)
+
+# Step 3: Mark whether any bee exited in each block
+bee_block_data <- all_time_blocks %>%
+  left_join(
+    joined_bee_ws_gt_data %>%
+      select(date, time_block, bee_exited),
+    by = c("date", "time_block")
+  ) %>%
+  mutate(bee_exited = ifelse(is.na(bee_exited), 0, bee_exited))
+
+# Step 4: Nearest weather reading per block
+# Prepare matching data
+block_times <- bee_block_data %>%
+  mutate(block_time_numeric = as.numeric(time_block))
+
+weather_obs <- joined_bee_ws_gt_data %>%
+  select(date, obs_time = bee_exit_datetime, tmpf, relh, ground_temperature_F, skyc1) %>%
+  distinct() %>%
+  mutate(obs_time_numeric = as.numeric(obs_time))
+
+# Nearest neighbor match (1-NN)
+nearest_idx <- get.knnx(
+  data = matrix(weather_obs$obs_time_numeric),
+  query = matrix(block_times$block_time_numeric),
+  k = 1
+)$nn.index[,1]
+
+# Add nearest weather obs
+bee_block_data <- bind_cols(
+  bee_block_data,
+  weather_obs[nearest_idx, c("tmpf", "relh", "ground_temperature_F", "skyc1")]
+)
+
+# Step 5: Add time-based predictors
+bee_block_data <- bee_block_data %>%
+  mutate(
+    decimal_hour = hour(time_block) + minute(time_block) / 60,
+    time_rad = 2 * pi * decimal_hour / 24,
+    sin_time = sin(time_rad),
+    cos_time = cos(time_rad),
+    skyc1 = as.factor(skyc1),
+    skyc1 = relevel(skyc1, ref = "CLR")
+  )
+
+
+
 ```
 
