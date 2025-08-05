@@ -38,6 +38,45 @@ levels(bee_model_data$skyc1)
 ```
 
 ```{r}
+#graph to model the differences between the exit times predicted by the model and the actual bee exit times. Shows how well the model is working
+
+library(dplyr)
+library(ggplot2)
+
+# Step 1: Create a decimal exit hour from datetime
+bee_model_data <- bee_model_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60
+  )
+
+# Step 2: Generate predicted values from the model (assuming `step_model` already exists)
+bee_model_data <- bee_model_data %>%
+  mutate(
+    predicted_exit = predict(step_model, newdata = .),
+    residual = exit_hour - predicted_exit
+  )
+
+# Step 3: Plot residuals
+ggplot(bee_model_data, aes(x = predicted_exit, y = residual)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  geom_point(alpha = 0.6, color = "hotpink") +
+  geom_smooth(method = "loess", se = TRUE, color = "skyblue") +
+  labs(
+    title = "Residuals: Actual vs. Predicted Bee Exit Times",
+    x = "Predicted Bee Exit Time (Hour)",
+    y = "Residual (Actual - Predicted)"
+  ) +
+  theme_minimal(base_size = 13) +
+  scale_x_continuous(breaks = pretty(bee_model_data$predicted_exit, n = 6)) +
+  scale_y_continuous(breaks = pretty(bee_model_data$residual, n = 6))
+
+
+```
+
+
+
+
+```{r}
 #This code will try and plot some visualizations based on what model predicted above
 
 #This code will show the average predicted time by cloud cover category: "how does cloudiness shift the average emergence time?"
@@ -121,8 +160,8 @@ ggplot(bee_hourly, aes(x = hour, y = n_exits, group = date, color = as.factor(da
   geom_smooth(se = FALSE, method = "loess", span = 0.6, linewidth = 1.2) +
   scale_x_continuous(
     name = "Time of Day (Hour)",
-    breaks = seq(8, 17, by = 1),  # Ticks from 6 AM to 6 PM
-    limits = c(8, 17)
+    breaks = seq(9, 14, by = 1),  # Ticks from 6 AM to 6 PM
+    limits = c(9, 14)
   ) +
   scale_y_continuous(name = "Number of Bee Exits (per Hour)") +
   labs(
@@ -137,14 +176,204 @@ ggplot(bee_hourly, aes(x = hour, y = n_exits, group = date, color = as.factor(da
   )
 
 
+#plotting average temperature change vs. Average predicted bee exit time (based off model)
+
+library(dplyr)
+library(ggplot2)
+
+# Step 1: Extract hour from bee exit datetime
+bee_model_data <- bee_model_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60,
+    date = as.Date(bee_exit_datetime)
+  )
+
+# Step 2: Calculate average ground temp per date
+avg_temp_per_day <- bee_model_data %>%
+  group_by(date) %>%
+  summarise(avg_ground_temp = mean(ground_temperature_F, na.rm = TRUE), .groups = "drop")
+
+# Step 3: Join average ground temp back to original bee data
+bee_plot_data <- bee_model_data %>%
+  left_join(avg_temp_per_day, by = "date")
+
+# Step 4: Plot
+ggplot(bee_plot_data, aes(x = avg_ground_temp, y = predicted_exit)) +
+  geom_jitter(width = 0.3, height = 0.2, alpha = 0.5, color = "hotpink") +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  labs(
+    x = "Average Ground Temperature (°F)",
+    y = "Bee Exit Time (Hour)",
+    title = "Bee Exit Time vs. Daily Avg. Ground Temperature"
+  ) +
+  scale_x_continuous(breaks = pretty(bee_plot_data$avg_ground_temp, n = 6)) +
+  scale_y_continuous(breaks = seq(7, 17, 1)) +
+  theme_minimal(base_size = 13)
+
+
+
+
+```
+
+
+```{r}
+#same thing as average ground temp vs average predicted bee exit time but color coded with cloud cover averages
+
+library(dplyr)
+library(ggplot2)
+
+# Step 1: Predict exit time using the existing fitted model
+bee_model_data$predicted_exit <- predict(step_model, newdata = bee_model_data)
+
+# Step 2: Create summary data grouped by date and sky condition
+summary_df <- bee_model_data %>%
+  mutate(date = as.Date(bee_exit_datetime)) %>%
+  group_by(date, skyc1) %>%
+  summarise(
+    avg_ground_temp = mean(ground_temperature_F, na.rm = TRUE),
+    avg_predicted_exit = mean(predicted_exit, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 3: Plot with skyc1 as color
+ggplot(summary_df, aes(x = avg_ground_temp, y = avg_predicted_exit, color = skyc1)) +
+  geom_point(size = 3, alpha = 0.8) +
+  labs(
+    x = "Average Ground Temperature (°F)",
+    y = "Average Predicted Bee Exit Time (Hour)",
+    color = "Cloud Cover",
+    title = "Predicted Bee Exit Time vs. Ground Temp by Cloud Cover"
+  ) +
+  scale_x_continuous(breaks = pretty(summary_df$avg_ground_temp, n = 6)) +
+  scale_y_continuous(breaks = pretty(summary_df$avg_predicted_exit, n = 6)) +
+  theme_minimal(base_size = 13)
+
+
+
+
+```
+
+```{r}
+#code the graph time vs ground temp, colored by cloud cover and size of dots get bigger with more bee exits
+
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Step 1: Add hour of exit and prepare relevant columns
+plot_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime),
+    ground_temp = ground_temperature_F,
+    skyc1 = as.factor(skyc1)
+  ) %>%
+  filter(!is.na(exit_hour), !is.na(ground_temp), !is.na(skyc1))
+
+# Step 2: Count number of bees per (hour, temperature, sky condition)
+summary_df <- plot_data %>%
+  group_by(exit_hour, ground_temp, skyc1) %>%
+  summarise(n_bees = n(), .groups = "drop")
+
+# Step 3: Plot with color by sky condition and size by number of bees
+ggplot(summary_df, aes(x = exit_hour, y = ground_temp)) +
+  geom_point(aes(size = n_bees, color = skyc1), alpha = 0.7) +
+  scale_size_continuous(name = "Number of Bees") +
+  scale_color_brewer(palette = "Dark2", name = "Sky Cover") +
+  labs(
+    title = "Bee Exit Density by Hour, Ground Temp, and Sky Cover",
+    x = "Hour of Day",
+    y = "Ground Temperature (°F)"
+  ) +
+  scale_x_continuous(breaks = seq(7, 17, 1)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
+  theme_minimal(base_size = 14)
+
+
+```
+
+
+```{r}
+#same graph above but faceted
+
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Step 1: Prepare data
+plot_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime),
+    ground_temp = ground_temperature_F,
+    skyc1 = as.factor(skyc1),
+    date = as.Date(bee_exit_datetime)
+  ) %>%
+  filter(!is.na(exit_hour), !is.na(ground_temp), !is.na(skyc1), !is.na(date))
+
+# Step 2: Count number of bee exits per combo
+summary_df <- plot_data %>%
+  group_by(date, exit_hour, ground_temp, skyc1) %>%
+  summarise(n_bees = n(), .groups = "drop")
+
+# Step 3: Plot with full axis labels in each facet
+plot_bees <- ggplot(summary_df, aes(x = exit_hour, y = ground_temp)) +
+  geom_point(aes(size = n_bees, color = skyc1), alpha = 0.7) +
+  geom_smooth(aes(color = skyc1), method = "loess", se = FALSE, linewidth = 1, span = 1) +
+  scale_size_continuous(name = "Bee Exits") +
+  scale_color_brewer(palette = "Dark2", name = "Sky Cover") +
+  labs(
+    title = "Bee Exit Density by Hour, Ground Temp, and Sky Cover (Faceted by Day)",
+    x = "Hour of Day",
+    y = "Ground Temperature (°F)"
+  ) +
+  scale_x_continuous(breaks = seq(7, 17, 1)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
+  facet_wrap(~date, scales = "fixed") +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(size = 12),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.spacing = unit(1, "lines")
+  )
+
+#save graph
+# Save as high-resolution PNG
+ggsave(
+  filename = "bee_exits_by_hour_temp_cloudcover.png",
+  plot = plot_bees,                   # your ggplot object
+  width = 12,                         # width in inches
+  height = 8,                         # height in inches
+  dpi = 300                           # print quality
+)
+
+# Save as a vector-based PDF (great for posters)
+ggsave(
+  filename = "bee_exits_by_hour_temp_cloudcover.pdf",
+  plot = plot_bees,
+  width = 12,
+  height = 8,
+  dpi = 300  # ignored for PDF but still required
+)
+
+print(summary_df)
 
 ```
 
 
 
+```{r}
+#how temperature changes over time by cloud cover
 
+ggplot(joined_bee_ws_gt_data, aes(x = skyc1, y = ground_temperature_F, fill = skyc1)) +
+  geom_boxplot() +
+  labs(
+    x = "Sky Condition",
+    y = "Ground Temperature (°F)",
+    title = "Ground Temperature by Sky Condition"
+  ) +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_minimal(base_size = 13)
 
-
+```
 
 
 ```{r}
