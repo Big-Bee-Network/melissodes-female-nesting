@@ -158,7 +158,7 @@ ggplot(temp_data_prepped, aes(x = time_of_day, y = ground_temperature_F, color =
       by = 2
     )
   ) +
-  labs(x = "Time of Day", y = "Temperature (°F)", color = "Date") +
+  labs(title = "Temperature Variation w/ bee exits", x = "Time of Day", y = "Temperature (°F)", color = "Date") +
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)

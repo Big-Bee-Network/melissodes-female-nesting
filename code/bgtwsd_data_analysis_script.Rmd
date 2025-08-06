@@ -38,6 +38,66 @@ levels(bee_model_data$skyc1)
 ```
 
 ```{r}
+#code to run a mixed effects model with date as the random effect and change cloud categories to just clear and cloudy 
+
+library(dplyr)
+library(lubridate)
+library(lme4)
+library(ggplot2)
+
+# Step 1: Recode sky condition and prepare data
+bee_model_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60,
+    date = as.Date(bee_exit_datetime),
+    cloud_condition = case_when(
+      skyc1 == "CLR" ~ "Clear",
+      !is.na(skyc1) ~ "Cloudy",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(
+    !is.na(ground_temperature_F),
+    !is.na(tmpf),
+    !is.na(relh),
+    !is.na(cloud_condition),
+    !is.na(exit_hour),
+    !is.na(date)
+  )
+
+# Convert cloud_condition to a factor and set "Clear" as the reference level
+bee_model_data$cloud_condition <- factor(bee_model_data$cloud_condition, levels = c("Clear", "Cloudy"))
+
+# Step 2: Fit mixed effects model with all predictors
+mixed_model <- lmer(exit_hour ~ ground_temperature_F + tmpf + relh + cloud_condition + (1 | date),
+                    data = bee_model_data)
+
+# Step 3: View model results
+summary(mixed_model)
+
+# Step 4: Add predicted values back to the dataset
+bee_model_data$predicted_exit_hour <- predict(mixed_model)
+
+#step 5 to calculate marginal and conditional R^2 values
+
+
+install.packages("MuMIn")
+library(MuMIn)
+r.squaredGLMM(mixed_model)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
 #graph to model the differences between the exit times predicted by the model and the actual bee exit times. Shows how well the model is working
 
 library(dplyr)
@@ -290,6 +350,51 @@ ggplot(summary_df, aes(x = exit_hour, y = ground_temp)) +
 
 
 ```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Step 1: Add hour of exit and prepare relevant columns
+plot_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    exit_hour = hour(bee_exit_datetime),
+    ground_temp = ground_temperature_F,
+    skyc1 = as.factor(skyc1),
+    # New grouping: CLR, OVC, and "Other"
+    sky_group = case_when(
+      skyc1 == "CLR" ~ "Clear",
+      skyc1 == "OVC" ~ "Overcast",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  filter(!is.na(exit_hour), !is.na(ground_temp), !is.na(sky_group))
+
+# Step 2: Count number of bees per (hour, temperature, sky group)
+summary_df <- plot_data %>%
+  group_by(exit_hour, ground_temp, sky_group) %>%
+  summarise(n_bees = n(), .groups = "drop")
+
+# Step 3: Plot with color by simplified sky condition and size by number of bees
+ggplot(summary_df, aes(x = exit_hour, y = ground_temp)) +
+  geom_point(aes(size = n_bees, color = sky_group), alpha = 0.7) +
+  scale_size_continuous(name = "Number of Bees") +
+  scale_color_manual(
+    values = c("Clear" = "skyblue3", "Overcast" = "gray40", "Other" = "tan"),
+    name = "Sky Cover"
+  ) +
+  labs(
+    title = "Bee Exit Density by Hour, Ground Temp, and Simplified Sky Cover",
+    x = "Hour of Day",
+    y = "Ground Temperature (°F)"
+  ) +
+  scale_x_continuous(breaks = seq(7, 17, 1)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
+  theme_minimal(base_size = 14)
+
+```
+
 
 
 ```{r}
