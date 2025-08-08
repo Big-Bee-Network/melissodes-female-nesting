@@ -85,13 +85,164 @@ install.packages("MuMIn")
 library(MuMIn)
 r.squaredGLMM(mixed_model)
 
+#lets plot the model based on JT Miller's suggestion
+library(effects)
+plot(allEffects(mixed_model))
 
 ```
 
 
+```{r}
+#code to plot a bee exit density plot over time
+
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+
+# Step 1: Extract the time of day in decimal hour
+density_plot_data <- joined_bee_ws_gt_data %>%
+  filter(!is.na(bee_exit_datetime)) %>%
+  mutate(
+    decimal_hour = hour(bee_exit_datetime) + minute(bee_exit_datetime) / 60
+  )
+
+# Step 2: Create the density plot
+ggplot(density_plot_data, aes(x = decimal_hour)) +
+  geom_density(fill = "maroon2", alpha = 0.6, adjust = 1.2) +
+  labs(
+    title = "Density of Bee Exits Over Time",
+    x = "Hour of Day",
+    y = "Density of Bee Exits"
+  ) +
+  scale_x_continuous(breaks = seq(7, 17, 1)) +
+  theme_minimal(base_size = 14)
+
+```
+
+```{r}
+#script to see how ground temperature changes over time, colored by cloud cover (clear/cloudy)
+
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Step 1: Create time-of-day and cloud_condition columns
+plot_data <- joined_bee_ws_gt_data %>%
+  mutate(
+    # Convert full datetime to time-of-day (ignores date)
+    time_of_day = as.POSIXct(format(datetime_ground_temp, format = "%H:%M:%S"), format = "%H:%M:%S"),
+    
+    # Simplify sky cover to "Clear" vs "Cloudy"
+    cloud_condition = case_when(
+      skyc1 == "CLR" ~ "Clear",
+      !is.na(skyc1) ~ "Cloudy",
+      TRUE ~ NA_character_
+    ),
+    cloud_condition = factor(cloud_condition, levels = c("Clear", "Cloudy"))
+  ) %>%
+  filter(!is.na(time_of_day), !is.na(ground_temperature_F), !is.na(cloud_condition))
+
+# Step 2: Calculate R² for each sky condition
+rsq_labels <- plot_data %>%
+  group_by(cloud_condition) %>%
+  summarise(
+    rsq = summary(lm(ground_temperature_F ~ as.numeric(time_of_day)))$r.squared,
+    x = min(time_of_day, na.rm = TRUE),
+    y = max(ground_temperature_F, na.rm = TRUE) - 2 * as.numeric(as.factor(cloud_condition))  # offsets the labels
+  ) %>%
+  mutate(label = paste0("R² = ", round(rsq, 3)))
+
+# Step 3: Plot
+ggplot(plot_data, aes(x = time_of_day, y = ground_temperature_F, color = cloud_condition)) +
+  geom_point(alpha = 0.6, size = 3) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +
+  geom_text(data = rsq_labels, aes(x = x, y = y, label = label, color = cloud_condition), hjust = 0, show.legend = FALSE) +
+  labs(
+    title = "Ground Temperature Over Time of Day",
+    x = "Time of Day",
+    y = "Ground Temperature (°F)",
+    color = "Sky Condition"
+  ) +
+  scale_x_datetime(
+    date_labels = "%H:%M",
+    date_breaks = "1 hour"
+  ) +
+  scale_size_continuous(range = c(2, 6)) +
+  scale_color_manual(
+    values = c("Clear" = "gold", "Cloudy" = "hotpink"),
+    name = "Sky Condition"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+```
+
+
+```{r}
 
 
 
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Step 1: Create decimal_hour and cloud_condition columns
+plot_data <- joined_bee_ws_gt_data %>%
+  filter(!is.na(datetime_ground_temp)) %>%
+  mutate(
+    # Decimal representation of hour (e.g., 13.5 = 1:30 PM)
+    decimal_hour = hour(datetime_ground_temp) + minute(datetime_ground_temp) / 60,
+    
+    # Simplify sky cover to "Clear" vs "Cloudy"
+    cloud_condition = case_when(
+      skyc1 == "CLR" ~ "Clear",
+      !is.na(skyc1) ~ "Cloudy",
+      TRUE ~ NA_character_
+    ),
+    
+    cloud_condition = factor(cloud_condition, levels = c("Clear", "Cloudy"))
+  )
+
+# Step 2: Calculate R² for each sky condition
+rsq_labels <- plot_data %>%
+  group_by(cloud_condition) %>%
+  summarise(
+    rsq = summary(lm(ground_temperature_F ~ decimal_hour))$r.squared,
+    x = min(decimal_hour, na.rm = TRUE),
+    y = max(ground_temperature_F, na.rm = TRUE) - 2 * as.numeric(as.factor(cloud_condition)),  # offset label vertically
+    .groups = "drop"
+  ) %>%
+  mutate(label = paste0("R² = ", round(rsq, 3)))
+
+# Step 3: Plot
+ggplot(plot_data, aes(x = decimal_hour, y = ground_temperature_F, color = cloud_condition)) +
+  geom_point(alpha = 0.6, size = 3) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +
+  geom_text(data = rsq_labels, aes(x = x, y = y, label = label, color = cloud_condition),
+            hjust = 0, show.legend = FALSE) +
+  labs(
+    title = "Ground Temperature Over Time of Day (Decimal Hour)",
+    x = "Hour of Day (Decimal)",
+    y = "Ground Temperature (°F)",
+    color = "Sky Condition"
+  ) +
+  scale_x_continuous(breaks = seq(7, 17, 1)) +
+  scale_color_manual(
+    values = c("Clear" = "gold", "Cloudy" = "hotpink"),
+    name = "Sky Condition"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5)
+  )
+
+
+```
 
 
 
