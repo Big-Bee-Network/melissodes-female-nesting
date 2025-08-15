@@ -26,6 +26,10 @@ Station data obtained from https://mesonet.agron.iastate.edu/request/download.ph
 |bee_exit_ground_temp_final.csv| The combined data sets: "bee_data_for_nwsd" and "ground_temp_data". The data set was merged based on what time recorded for ground temperature best matched a bee exit time. The parsed date from "bee_data_for_nwsd" is under "Date", the numeric entrance and exit times for the bees are under "Time Entered/Time Exited", the combined date and time a bee exited is under "bee_exit_datetime", the combined date and time a ground temperature was recorded is under "datetime_ground_temp", the ground temperature in degrees fahrenheit is under "ground_temperature_F", the difference in seconds between the time a bee exited and the nearest time a temperature was recored is under both "time_diff_secs" and "gt_time_diff_secs" (these columns contain the exact same information), finally that same difference between when the bee was recorded exiting and the time a temperature was recorded but in minutes is under "gt_time_diff_mins".|
 |joined_bee_ws_gt_data.csv| This data frame combines the data from "bee_exit_ground_temp_final.csv" and the data from "new_wsd.csv". It contains all the columns from "bee_exit_ground_temp_final.csv" and all the columns from "new_wsd". All other columns created in this joined data frame that are not from the original two data frames were created for analysis tests and were not used for the projects final analysis. The time difference columns were also left out of the final analysis and thus are un-used columns.|
 
+|Code|Description|
+|:---|:---|
+|Data_cleaning_reformating_script| This script contains code to parse the dates and times in both the “bee_data” 
+
 
 
 
