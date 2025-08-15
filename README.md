@@ -39,6 +39,10 @@ Station data obtained from https://mesonet.agron.iastate.edu/request/download.ph
 |LGN_Bee_cleaning_and_plotting.RData| This is a saved R session to save the session where I first started working with the bee data which resulted in dataframes such as “bee_data.csv” and “temp_data.csv”.|
 
 
+|Archive|
+|:---|
+|The archive contains both R markdown scripts and data that was not utilized in the final analysis. Most of the code was working with the initial “bee_data.csv” and “temp_data.csv” to try a further clean and plot it based on the code Dr. Seltmann wrote in the “clean-data-mtepidus.R” file. This is also where dataframes that were accidently duplicated and renamed were stored. “analysis.R” was Dr.Seltmann’s unique code to analyze some of the data collected while data collection was in progress, such as figuring out the number of bees recorded per nest and count the total number of nests that had multiple females visit it. 
+
 
 
 
