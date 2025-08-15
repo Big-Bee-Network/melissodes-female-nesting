@@ -14,6 +14,10 @@ Station data obtained from https://mesonet.agron.iastate.edu/request/download.ph
 	Field observations were conducted over 10 days at the UC Santa Barbara Campus Lagoon, recording bee nest emergence times as a proxy for activity. Ground temperature was measured on-site while other weather data were sourced from the Muni Santa Barbara weather station via Iowa State University’s ASOS Network. Data analysis involved the use of linear-mixed effects modeling, which identified ground temperature and cloud cover as the strongest predictors of bee activity. 
 	These findings highlight how daily weather conditions influence M. tepida’s activity and provide insight into how native bees may be impacted by global change. 
 
+|Archive|
+|:---|
+|The archive contains both R markdown scripts and data that was not utilized in the final analysis. Most of the code was working with the initial “bee_data.csv” and “temp_data.csv” to try a further clean and plot it based on the code Dr. Seltmann wrote in the “clean-data-mtepidus.R” file. This is also where dataframes that were accidently duplicated and renamed were stored. “analysis.R” was Dr.Seltmann’s unique code to analyze some of the data collected while data collection was in progress, such as figuring out the number of bees recorded per nest and count the total number of nests that had multiple females visit it. 
+
 |Data|Description|
 |:---|:---|
 |bee_data.csv|Cleaned data frame of raw bee data from google sheets including columns with the parsed date under "Date", the color the bee was marked under "Bee_color", the nest number the bee emerged from under "Nest_Number", the numeric time the bee entered and exited under "Time_Entered"/"Time_Exited", the parsed time the bee entered or exited assigned either AM/PM under "Time_Entered_fixed/Time_Exited_fixed", the combined parsed dates in yy-mm-dd format with the parsed enter and exit times in 24 hour format under "Time_Entered_dt/Time_Exited_dt" (column is POSIXct class), and finally the how many minutes each bee stayed in their nest under "Duration_minutes". This data frame was created using Dr.Seltmanns fix_ampm helper function from the "clean-data-mtepidus.R" file and all rows with bee enter and exit times reported as "NA" were removed.|
@@ -39,9 +43,6 @@ Station data obtained from https://mesonet.agron.iastate.edu/request/download.ph
 |LGN_Bee_cleaning_and_plotting.RData| This is a saved R session to save the session where I first started working with the bee data which resulted in dataframes such as “bee_data.csv” and “temp_data.csv”.|
 
 
-|Archive|
-|:---|
-|The archive contains both R markdown scripts and data that was not utilized in the final analysis. Most of the code was working with the initial “bee_data.csv” and “temp_data.csv” to try a further clean and plot it based on the code Dr. Seltmann wrote in the “clean-data-mtepidus.R” file. This is also where dataframes that were accidently duplicated and renamed were stored. “analysis.R” was Dr.Seltmann’s unique code to analyze some of the data collected while data collection was in progress, such as figuring out the number of bees recorded per nest and count the total number of nests that had multiple females visit it. 
 
 
 
