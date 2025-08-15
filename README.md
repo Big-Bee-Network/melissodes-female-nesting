@@ -14,9 +14,9 @@ Station data obtained from https://mesonet.agron.iastate.edu/request/download.ph
 	Field observations were conducted over 10 days at the UC Santa Barbara Campus Lagoon, recording bee nest emergence times as a proxy for activity. Ground temperature was measured on-site while other weather data were sourced from the Muni Santa Barbara weather station via Iowa State University’s ASOS Network. Data analysis involved the use of linear-mixed effects modeling, which identified ground temperature and cloud cover as the strongest predictors of bee activity. 
 	These findings highlight how daily weather conditions influence M. tepida’s activity and provide insight into how native bees may be impacted by global change. 
 
-|Archive|
+|Description|
 |:---|
-|The archive contains both R markdown scripts and data that was not utilized in the final analysis. Most of the code was working with the initial “bee_data.csv” and “temp_data.csv” to try a further clean and plot it based on the code Dr. Seltmann wrote in the “clean-data-mtepidus.R” file. This is also where dataframes that were accidently duplicated and renamed were stored. “analysis.R” was Dr.Seltmann’s unique code to analyze some of the data collected while data collection was in progress, such as figuring out the number of bees recorded per nest and count the total number of nests that had multiple females visit it. 
+|This archive contains both R markdown scripts and data that was not utilized in the final analysis. Most of the code was working with the initial “bee_data.csv” and “temp_data.csv” to try a further clean and plot it based on the code Dr. Seltmann wrote in the “clean-data-mtepidus.R” file. This is also where dataframes that were accidently duplicated and renamed were stored. “analysis.R” was Dr.Seltmann’s unique code to analyze some of the data collected while data collection was in progress, such as figuring out the number of bees recorded per nest and count the total number of nests that had multiple females visit it. 
 
 |Data|Description|
 |:---|:---|
